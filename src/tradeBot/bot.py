@@ -84,6 +84,7 @@ class TradeBot:
                     self._close()
                 elif message_type == 'error':
                     self._error(message)
+                    raise Exception(message)
                 elif message_type == 'book':
                     self._book(message)
                 elif message_type == 'trade':
@@ -105,6 +106,7 @@ class TradeBot:
             except Exception as e:
                 self.logger.warning(message)
                 self.logger.warning(e)
+                self._connect()
 
     def _say_hello(self):
         self._write({"type": "hello", "team": self.team_name.upper()})
