@@ -1,3 +1,4 @@
+import logging
 from logging import getLogger
 import socket
 import json
@@ -18,6 +19,11 @@ class TradeBot:
         self.team_name: str = team_name
         self.hooks = {} if hooks is None else hooks
         self.registered_filled_callbacks: Dict[int, Callable[[int, int, bool], None]] = {}
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(asctime)s - %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S',
+                            filename='bond.log',
+                            filemode='a')
         self.logger = getLogger("TradeBot")
         self.skt: Union[None, socket.socket] = None
         self.connection = None
@@ -59,6 +65,7 @@ class TradeBot:
             try:
                 message = self._read()
                 message_type = message['type']
+                self.logger.info(f'receive {message_type}')
                 if message_type == 'hello':
                     self._hello(message['symbols'])
                 elif message_type == 'open':
@@ -116,22 +123,20 @@ class TradeBot:
         self.security_manager.update_book(symbol, buys, sells)
 
     def _trade(self, message):
-        # TODO
-        # https://github.com/brgirardeau/etc/blob/master/tradebot.py
-        # line: 129 self.other_trades.append(message)
-        # line: 66 self.other_trades = [] # {"type":"trade","symbol":"SYM","price":N,"size":N}
-        # 其他地方哪也没用到 似乎是记录了不属于自己的trade？
         symbol = message['symbol']
+        price = message['price']
+        size = message['size']
+        self.security_manager.add_trade(symbol, price, size)
         pass
 
     def _ack(self, message):
         order_id = message['order_id']
-        self.logger.info(f'ACK: {order_id}')
+        self.logger.info(f'order ACK: {order_id}')
         self.security_manager.ack_order(order_id)
 
     def _reject(self, message):
         order_id, error = message['order_id'], message['error']
-        self.logger.info(f'Reject: {order_id}, reason: {error}')
+        self.logger.info(f'order Reject: {order_id}, reason: {error}')
         self.security_manager.reject_order(order_id, error)
 
     def _fill(self, message):
@@ -224,8 +229,10 @@ class TradeBot:
 
 
 if __name__ == '__main__':
-    bot = TradeBot("AAA", hooks={"after_open": lambda: print("open")})
+    bot = TradeBot("DOCTORSTRANGE", hooks={"after_open": lambda: print("open")}, mode="test")
     while True:
         positions = bot.get_positions()
+        bot.create_buy_sell_order("BOND", 999, 10, is_sell=True)
+        bot.create_buy_sell_order("BOND", 1001, 10, is_buy=True)
         print('\t'.join([str(positions[sec]) for sec in SecurityManager.securities]))
         sleep(0.3)

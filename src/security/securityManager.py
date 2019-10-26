@@ -1,10 +1,13 @@
-import os
 from datetime import datetime as dt
-from typing import Dict, List, Union, NamedTuple
+from typing import Dict, List, NamedTuple
+
+import os
 
 BookPair = NamedTuple('BookPair', [('price', int), ('size', int)])
+Trade = NamedTuple('Trade', [('price', int), ('size', int)])
 Convertible = NamedTuple('Convertible',
-                         [('from', str), ('from_size', int), ('to', List[str]), ('to_sizes', List[int]), ('fee', int)])
+                         [('from_security', str), ('from_size', int), ('to', List[str]), ('to_sizes', List[int]),
+                          ('fee', int)])
 
 
 def timestamp_now():
@@ -35,6 +38,7 @@ class SecurityManager:
     def __init__(self):
         self.available_securities = SecurityManager.securities
         self.positions = {name: 0 for name in SecurityManager.securities}
+        self.historical_trades: Dict[str, List[Trade]] = {name: [] for name in SecurityManager.securities}
         self.historical_books: Dict[str, List[Book]] = {name: [] for name in SecurityManager.securities}
         self.book_indices: Dict[str, int] = {name: None for name in SecurityManager.securities}
         self.orders = {
@@ -46,6 +50,9 @@ class SecurityManager:
 
         self.order_id = self._restore_order_id()
 
+    def add_trade(self, name, price, size):
+        self.historical_trades[name].append(Trade(price, size))
+
     def update_position(self, name, position):
         self.positions[name] = position
 
@@ -55,6 +62,7 @@ class SecurityManager:
     def open_trading_day(self, available_securities):
         self.available_securities = available_securities
         self.positions = {name: 0 for name in SecurityManager.securities}
+        self.historical_trades = {name: [] for name in SecurityManager.securities}
         self.historical_books = {name: [] for name in SecurityManager.securities}
         self.book_indices = [None for _ in SecurityManager.securities]
         self.orders = {
