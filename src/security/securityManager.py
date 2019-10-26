@@ -170,9 +170,28 @@ class SecurityManager:
     def ack_order(self, order_id):
         for (idx, order) in enumerate(self.orders['wait']):
             if order['order_id'] == order_id:
-                self.orders['confirmed'].append(order)
                 self.orders['wait'].pop(idx)
-                break
+
+                order_type = order['type']
+                direction = order['direction']
+                security = order['security']
+                if order_type == "convert":
+                    size = order['size']
+                    if direction == "SELL":
+                        self.positions[security] -= size
+                        for (sec, to_size) in zip(SecurityManager.convertibles[security].to,
+                                                  SecurityManager.convertibles[security].to_sizes):
+                            self.positions[sec] += size / SecurityManager.convertibles[security].from_size * to_size
+
+                    elif direction == "BUY":
+                        self.positions[security] += size
+                        for (sec, to_size) in zip(SecurityManager.convertibles[security].to,
+                                                  SecurityManager.convertibles[security].to_sizes):
+                            self.positions[sec] -= size / SecurityManager.convertibles[security].from_size * to_size
+                    self.orders['filled'].append(order)
+                else:
+                    self.orders['confirmed'].append(order)
+                return
 
     def reject_order(self, order_id, reason):
         for (idx, order) in enumerate(self.orders['wait']):
@@ -183,74 +202,70 @@ class SecurityManager:
                 break
 
     def fill_order(self, order_id, price, size) -> bool:
-        for order_set in ["confirmed", "wait"]:
-            for (idx, order) in enumerate(self.orders[order_set]):
-                if order['order_id'] == order_id:
-                    order['fills'].append({
-                        "price": price,
-                        "size": size,
-                        "timestamp": timestamp_now()
-                    })
-                    order_type = order['type']
-                    direction = order['direction']
-                    security = order['security']
-                    if order_type == "add":
-                        if direction == "SELL":
-                            self.positions[security] -= size
-                        elif direction == "BUY":
-                            self.positions[security] += size
-                        else:
-                            raise Exception(f"unknown order direction {direction}")
-                    elif order_type == "convert":
-                        if direction == "SELL":
-                            self.positions[security] -= size
-                            for (sec, to_size) in zip(SecurityManager.convertibles[security].to,
-                                                      SecurityManager.convertibles[security].to_sizes):
-                                self.positions[sec] += size / SecurityManager.convertibles[security].from_size * to_size
-
-                        elif direction == "BUY":
-                            self.positions[security] += size
-                            for (sec, to_size) in zip(SecurityManager.convertibles[security].to,
-                                                      SecurityManager.convertibles[security].to_sizes):
-                                self.positions[sec] -= size / SecurityManager.convertibles[security].from_size * to_size
-                        else:
-                            raise Exception(f"unknown order direction {direction}")
+        # 如果在wait里面，强制进confirmed
+        for (idx, order) in enumerate(self.orders['wait']):
+            if order['order_id'] == order_id:
+                self.orders['confirmed'].append(order)
+                self.orders['wait'].pop(idx)
+        # 直接在confirm里面找
+        for (idx, order) in enumerate(self.orders['confirmed']):
+            if order['order_id'] == order_id:
+                order['fills'].append({
+                    "price": price,
+                    "size": size,
+                    "timestamp": timestamp_now()
+                })
+                order_type = order['type']
+                direction = order['direction']
+                security = order['security']
+                if order_type == "add":
+                    if direction == "SELL":
+                        self.positions[security] -= size
+                    elif direction == "BUY":
+                        self.positions[security] += size
                     else:
-                        raise Exception(f"unknown order type {order_type}")
+                        raise Exception(f"unknown order direction {direction}")
+                elif order_type == 'convert':
+                    raise Exception(f"convert orders are not handled here.")
+                else:
+                    raise Exception(f"unknown order type {order_type}")
 
-                    filled = sum([x['size'] for x in order['fills']]) == order['size']
-                    if filled:
-                        self.orders['filled'].append(order)
-                        self.orders[order_set].pop(idx)
-                    else:
-                        if order_set == "wait":
-                            # 没经过ACK直接fill了，肯定哪里出了问题，但是没那么重要
-                            self.orders['confirmed'].append(order)
-                            self.orders['wait'].pop(idx)
-                    return filled
+                filled = sum([x['size'] for x in order['fills']]) == order['size']
+                if filled:
+                    self.orders['filled'].append(order)
+                    self.orders['confirmed'].pop(idx)
+                return filled
         raise Exception(f"order {order_id} not found")
 
     def out_trade(self, order_id):
-        for order_set in ["confirmed", "wait"]:
-            for (idx, order) in enumerate(self.orders[order_set]):
-                if order['order_id'] == order_id:
-                    order_type = order['type']
-                    direction = order['direction']
-                    security = order['security']
-                    if order_type == "convert":
-                        size = order['size']
-                        if direction == "SELL":
-                            self.positions[security] -= size
-                            for (sec, to_size) in zip(SecurityManager.convertibles[security].to,
-                                                      SecurityManager.convertibles[security].to_sizes):
-                                self.positions[sec] += size / SecurityManager.convertibles[security].from_size * to_size
-
-                        elif direction == "BUY":
-                            self.positions[security] += size
-                            for (sec, to_size) in zip(SecurityManager.convertibles[security].to,
-                                                      SecurityManager.convertibles[security].to_sizes):
-                                self.positions[sec] -= size / SecurityManager.convertibles[security].from_size * to_size
-                    return
+        # # 如果在wait里面，强制进confirmed
+        # for (idx, order) in enumerate(self.orders['wait']):
+        #     if order['order_id'] == order_id:
+        #         self.orders['confirmed'].append(order)
+        #         self.orders['wait'].pop(idx)
+        # # 直接在confirm里面找
+        # for (idx, order) in enumerate(self.orders['confirmed']):
+        #     if order['order_id'] == order_id:
+        #         order_type = order['type']
+        #         direction = order['direction']
+        #         security = order['security']
+        #         if order_type == "convert":
+        #             size = order['size']
+        #             if direction == "SELL":
+        #                 self.positions[security] -= size
+        #                 for (sec, to_size) in zip(SecurityManager.convertibles[security].to,
+        #                                           SecurityManager.convertibles[security].to_sizes):
+        #                     self.positions[sec] += size / SecurityManager.convertibles[security].from_size * to_size
+        #
+        #             elif direction == "BUY":
+        #                 self.positions[security] += size
+        #                 for (sec, to_size) in zip(SecurityManager.convertibles[security].to,
+        #                                           SecurityManager.convertibles[security].to_sizes):
+        #                     self.positions[sec] -= size / SecurityManager.convertibles[security].from_size * to_size
+        #         self.orders['filled'].append(order)
+        #         self.orders['confirmed'].pop(idx)
+        #         return
+        pass
 
 
 if __name__ == '__main__':
