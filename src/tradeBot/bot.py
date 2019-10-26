@@ -68,6 +68,7 @@ class TradeBot:
 
     def _read(self) -> dict:
         data = self.exchange.readline().strip()
+        print(data)
         return json.loads(data)
 
     def _listen(self):

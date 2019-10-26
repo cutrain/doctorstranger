@@ -1,7 +1,7 @@
 import os
 import json
 import requests
-from connection import buy, sell, get_buy_book, get_sell_book, get_stock
+from connection import buy, sell, get_books, get_positions, convert_buy, convert_sell, get_trades
 
 url = 'http://localhost:8121'
 alive_url = url + '/isalive'
