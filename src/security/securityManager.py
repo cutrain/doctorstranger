@@ -104,7 +104,9 @@ class SecurityManager:
         for name in SecurityManager.securities:
             books = self.historical_books[name]
             newest_idx = self.book_indices[name]
-            to_return[name] = None if newest_idx is None else books[newest_idx]
+
+            if newest_idx is not None:
+                to_return[name] = books[newest_idx]
         return to_return
 
     def get_trades(self) -> Dict[str, List[Trade]]:
