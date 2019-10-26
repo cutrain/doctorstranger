@@ -9,10 +9,7 @@ from src.security.securityManager import SecurityManager, Book
 
 
 class TradeBot:
-    NOT_CONNECTED = 0
-    CONNECTED = 1
-
-    def __init__(self, team_name, hooks: Dict[str, Callable] = None):
+    def __init__(self, team_name, hooks: Dict[str, Callable] = None, mode="test"):
         """
         :param team_name: 队伍的名字
         :param hooks: 生命周期钩子，目前只有"after_open"这一个 {"after": Callable}
@@ -22,13 +19,16 @@ class TradeBot:
         self.hooks = {} if hooks is None else hooks
         self.registered_filled_callbacks: Dict[int, Callable[[int, int, bool], None]] = {}
         self.logger = getLogger("TradeBot")
-        self.server_status = TradeBot.NOT_CONNECTED
         self.skt: Union[None, socket.socket] = None
         self.connection = None
-        # TODO
-        self.exchange_hostname = "localhost"
-        # TODO
-        self.port = 7778
+        if mode == 'test':
+            self.exchange_hostname = "test-exch-doctorstrange"
+            self.port = 25002
+        elif mode == 'prod':
+            self.exchange_hostname = "production"
+            self.port = 25000
+        else:
+            raise Exception(f"unknown mode {mode}")
         self._connect()
         self._listen()
 
