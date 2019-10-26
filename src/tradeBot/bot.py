@@ -153,6 +153,9 @@ class TradeBot:
         order_id = message['order_id']
         # TODO 不知道是干嘛的
 
+    def get_trades(self):
+        return self.security_manager.get_trades()
+
     def get_positions(self) -> Dict[str, int]:
         """
         :return: returned_val[security_name] 是当前该股仓位

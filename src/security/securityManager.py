@@ -4,7 +4,7 @@ from typing import Dict, List, NamedTuple
 import os
 
 BookPair = NamedTuple('BookPair', [('price', int), ('size', int)])
-Trade = NamedTuple('Trade', [('price', int), ('size', int)])
+Trade = NamedTuple('Trade', [('price', int), ('size', int), ('timestamp', int)])
 Convertible = NamedTuple('Convertible',
                          [('from_security', str), ('from_size', int), ('to', List[str]), ('to_sizes', List[int]),
                           ('fee', int)])
@@ -51,7 +51,7 @@ class SecurityManager:
         self.order_id = self._restore_order_id()
 
     def add_trade(self, name, price, size):
-        self.historical_trades[name].append(Trade(price, size))
+        self.historical_trades[name].append(Trade(price, size, timestamp_now()))
 
     def update_position(self, name, position):
         self.positions[name] = position
@@ -91,6 +91,9 @@ class SecurityManager:
             newest_idx = self.book_indices[idx]
             to_return[name] = None if newest_idx is None else books[newest_idx]
         return to_return
+
+    def get_trades(self) -> Dict[str, List[Trade]]:
+        return self.historical_trades
 
     def next_order_id(self):
         self.order_id += 1
