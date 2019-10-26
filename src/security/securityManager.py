@@ -69,7 +69,7 @@ class SecurityManager:
         self.positions = {name: 0 for name in SecurityManager.securities}
         self.historical_trades = {name: [] for name in SecurityManager.securities}
         self.historical_books = {name: [] for name in SecurityManager.securities}
-        self.book_indices = [None for _ in SecurityManager.securities]
+        self.book_indices = {name: None for name in SecurityManager.securities}
         self.orders = {
             "wait": [],
             "confirmed": [],
