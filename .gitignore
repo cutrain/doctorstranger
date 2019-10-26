@@ -1,0 +1,9 @@
+resources/order_id.txt
+*.swp
+*.swo
+__pycache__/
+venv/
+nohup.out
+git_sshkey
+git_sshkey.pub
+
