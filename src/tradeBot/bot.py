@@ -68,8 +68,12 @@ class TradeBot:
 
     def _read(self) -> dict:
         data = self.exchange.readline().strip()
-        print(data)
-        return json.loads(data)
+        try:
+            return json.loads(data)
+        except Exception as e:
+            self.logger.warning("error, check following data")
+            self.logger.warning(data)
+            raise e
 
     def _listen(self):
         Thread(target=lambda: self._listen_loop()).start()
@@ -224,7 +228,7 @@ class TradeBot:
     def create_convert_order(self, security, size,
                              is_sell: bool = None,
                              is_buy: bool = None,
-                             after_filled: Callable[[int, int, bool], None] = None) -> order_id:
+                             after_filled: Callable[[int, int, bool], None] = None) -> int:
         """
         :param security:
         :param size:
