@@ -19,12 +19,12 @@ class TradeBot:
         self.team_name: str = team_name
         self.hooks = {} if hooks is None else hooks
         self.registered_filled_callbacks: Dict[int, Callable[[int, int, bool], None]] = {}
-        logging.basicConfig(level=logging.DEBUG,
-                            format='%(asctime)s - %(message)s',
-                            datefmt='%Y-%m-%d %H:%M:%S',
-                            filename='bond.log',
-                            filemode='a')
-        self.logger = getLogger("TradeBot")
+        # logging.basicConfig(level=logging.DEBUG,
+        #                     format='%(asctime)s - %(message)s',
+        #                     datefmt='%Y-%m-%d %H:%M:%S',
+        #                     filename='bond.log',
+        #                     filemode='a')
+        # self.logger = getLogger("TradeBot")
         self.skt: Union[None, socket.socket] = None
         self.connection = None
         if mode == 'test':
@@ -87,7 +87,7 @@ class TradeBot:
                 elif message_type == 'out':
                     self._out(message)
                 # 0.1s的tick会不会太慢
-                sleep(0.1)
+                sleep(0.01)
             except ConnectionResetError or BrokenPipeError as e:
                 self.logger.warning(e)
                 self.logger.warning("try to reconnect")
