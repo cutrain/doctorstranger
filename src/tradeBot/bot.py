@@ -37,6 +37,7 @@ class TradeBot:
         self.logger.addHandler(stream_handler)
         self.skt: Union[None, socket.socket] = None
         self.connection = None
+        self.to_write = []
         if mode == 'test':
             self.exchange_hostname = "test-exch-doctorstrange"
             self.port = 25000
@@ -60,8 +61,9 @@ class TradeBot:
             raise e
 
     def _write(self, message: dict):
-        self.exchange.write(f'{json.dumps(message)}\n')
-        self.exchange.flush()
+        self.to_write.append(f'{json.dumps(message)}\n')
+        # self.exchange.write()
+        # self.exchange.flush()
 
     def _read(self) -> dict:
         data = self.exchange.readline().strip()
@@ -72,6 +74,9 @@ class TradeBot:
 
     def _listen_loop(self):
         while True:
+            for m in self.to_write:
+                self.exchange.write(m)
+            self.to_write = []
             try:
                 message = self._read()
                 message_type = message['type']

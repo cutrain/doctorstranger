@@ -54,6 +54,7 @@ class SecurityManager:
         }
 
         self.order_id = self._restore_order_id()
+        self.trade_date_id = self._restore_trade_date_id()
 
     def add_trade(self, name, price, size):
         self.historical_trades[name].append(Trade(price, size, timestamp_now()))
@@ -79,7 +80,9 @@ class SecurityManager:
         pass
 
     def close_trading_day(self):
-        root_dir = os.path.join("histories", str(timestamp_now()))
+        self.trade_date_id += 1
+        self._save_trade_date_id()
+        root_dir = os.path.join("histories", str(self.trade_date_id))
         os.makedirs(root_dir)
         for name in self.historical_trades:
             with open(os.path.join(root_dir, f'{name}_trades.list'), 'a') as f:
@@ -127,9 +130,23 @@ class SecurityManager:
         except:
             return 0
 
+    @staticmethod
+    def _restore_trade_date_id():
+        try:
+            with open(os.path.join("resources", "trade_date_id.txt")) as f:
+                line = f.readline().strip()
+                order_id = int(line)
+                return order_id
+        except:
+            return 0
+
     def _save_order_id(self):
         with open(os.path.join("resources", "order_id.txt"), 'w') as f:
             f.write(f'{self.order_id}\n')
+
+    def _save_trade_date_id(self):
+        with open(os.path.join("resources", "trade_date_id.txt"), 'w') as f:
+            f.write(f'{self.trade_date_id}\n')
 
     def create_order(self, order_message):
         order_type = order_message['type']
