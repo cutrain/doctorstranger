@@ -1,50 +1,71 @@
-import socket
-import src.tradeBot.bot as bot
+import json
+import requests as rq
+url = 'http://localhost:8121'
+cb_url = url + '/convert_buy'
+cs_url = url + '/convert_sell'
+b_url = url + '/buy'
+s_url = url + '/sell'
+book_url = url + '/get_books'
+posi_url = url + '/get_positions'
+trade_url = url + '/get_trades'
 
 
-
-
-
-fake_book = {
-    'a':{
-        'stock':(
-            [(12,1),(11,1),(10,1),(9,1),(8,1)],
-            [(13,1),(14,1),(15,1),(16,1),(17,1)],
-        )
-    },
-    'b':{
-        'stock':(
-            [(12,2),(11,2),(10,2),(9,2),(8,2)],
-            [(13,2),(14,2),(15,2),(16,2),(17,2)],
-        )
+def buy(security, price, size):
+    params = {
+        'ticket':security,
+        'price':price,
+        'size':size,
     }
-}
-fake_stock = {
-    'a':100,
-    'b':200,
-}
+    r = rq.post(b_url, data=params)
+    data = json.loads(r.text)
+    return data
 
-def book(ticket):
-    # TODO
-    return fake_book[ticket]
+def sell(security, price, size):
+    params = {
+        'ticket':security,
+        'price':price,
+        'size':size,
+    }
+    r = rq.post(s_url, data=params)
+    data = json.loads(r.text)
+    return data
 
-def get_buy_book(ticket):
-    # NOTE: make sure the but/sell price order
-    # TODO
-    return book(ticket)['stock'][0]
+def convert_buy(security, size):
+    params = {
+        'ticket':security,
+        'size':size,
+    }
+    r = rq.post(cb_buy, data=params)
+    data = json.loads(r.text)
+    return data
 
-def get_sell_book(ticket):
-    # TODO
-    return book(ticket)['stock'][1]
+def convert_sell(security, size):
+    params = {
+        'ticket':security,
+        'size':size,
+    }
+    r = rq.post(cb_sell, data=params)
+    data = json.loads(r.text)
+    return data
 
-def get_position(ticket):
-    return fake_stock[ticket]
+def get_books(ticket=None):
+    params = {}
+    if ticket is not None:
+        params['ticket'] = ticket
+    r = rq.post(book_url, data=params)
+    print(r)
+    data = json.loads(r.text)
+    return data
 
-def buy(ticket, stock):
-    # TODO
-    pass
+def get_positions(ticket=None):
+    params = {}
+    if ticket is not None:
+        params['ticket'] = ticket
+    r = rq.post(posi_url, data=params)
+    data = json.loads(r.text)
+    return data
 
-def sell(ticket, stock):
-    # TODO
-    pass
-
+def get_trades():
+    r = rq.post(trade_url)
+    data = json.loads(r.text)
+    return data
