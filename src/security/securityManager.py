@@ -201,12 +201,23 @@ class SecurityManager:
                 self.orders['wait'].pop(idx)
                 break
 
+    def cancel_order(self, order_id):
+        for (idx, order) in enumerate(self.orders['wait']):
+            if order['order_id'] == order_id:
+                self.orders['wait'].pop(idx)
+                return
+        for (idx, order) in enumerate(self.orders['confirmed']):
+            if order['order_id'] == order_id:
+                self.orders['confirmed'].pop(idx)
+                return
+
     def fill_order(self, order_id, price, size) -> bool:
         # 如果在wait里面，强制进confirmed
         for (idx, order) in enumerate(self.orders['wait']):
             if order['order_id'] == order_id:
                 self.orders['confirmed'].append(order)
                 self.orders['wait'].pop(idx)
+                break
         # 直接在confirm里面找
         for (idx, order) in enumerate(self.orders['confirmed']):
             if order['order_id'] == order_id:
@@ -235,7 +246,6 @@ class SecurityManager:
                     self.orders['filled'].append(order)
                     self.orders['confirmed'].pop(idx)
                 return filled
-        raise Exception(f"order {order_id} not found")
 
     def out_trade(self, order_id):
         # # 如果在wait里面，强制进confirmed

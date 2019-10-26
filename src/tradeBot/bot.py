@@ -144,7 +144,6 @@ class TradeBot:
     def _book(self, message):
         symbol = message['symbol']
         # buy N ----> buy 1
-
         buys = [{"price": buy[0], "size": buy[1]} for buy in message['buy']]
         # sell 1 ----> sell N
         sells = [{"price": sell[0], "size": sell[1]} for sell in message['sell']]
@@ -166,6 +165,39 @@ class TradeBot:
         order_id, error = message['order_id'], message['error']
         self.logger.info(f'order Reject: {order_id}, reason: {error}')
         self.security_manager.reject_order(order_id, error)
+
+    def create_buy_sell_order(self, security, price, size,
+                              is_sell: bool = None,
+                              is_buy: bool = None,
+                              after_filled: Callable[[int, int, bool], None] = None) -> int:
+        """
+        :param timeout: in seconds
+        :param security:
+        :param price:
+        :param size:
+        :param is_sell:
+        :param is_buy:
+        :param after_filled: on_filled(size, price, completed) 当这个order被fill的时候会调用
+        :return: order_id
+        """
+        if is_sell is None and is_buy is None:
+            raise Exception("direction not specified")
+        elif is_sell is not None and is_buy is not None:
+            raise Exception("cannot specify two directions")
+        order_id = self.security_manager.next_order_id()
+        order_message = {
+            "type": "add",
+            "order_id": order_id,
+            "symbol": security,
+            "dir": "SELL" if is_sell else "BUY",
+            "price": price,
+            "size": size,
+        }
+        self._write(order_message)
+        self.security_manager.create_order(order_message)
+        if after_filled is not None:
+            self.registered_filled_callbacks[order_id] = after_filled
+        return order_id
 
     def _fill(self, message):
         order_id = message["order_id"]
@@ -197,38 +229,6 @@ class TradeBot:
         :return: returned_val[security_name] 是当前该股Book信息
         """
         return self.security_manager.get_newest_books()
-
-    def create_buy_sell_order(self, security, price, size,
-                              is_sell: bool = None,
-                              is_buy: bool = None,
-                              after_filled: Callable[[int, int, bool], None] = None) -> int:
-        """
-        :param security:
-        :param price:
-        :param size:
-        :param is_sell:
-        :param is_buy:
-        :param after_filled: on_filled(size, price, completed) 当这个order被fill的时候会调用
-        :return: order_id
-        """
-        if is_sell is None and is_buy is None:
-            raise Exception("direction not specified")
-        elif is_sell is not None and is_buy is not None:
-            raise Exception("cannot specify two directions")
-        order_id = self.security_manager.next_order_id()
-        order_message = {
-            "type": "add",
-            "order_id": order_id,
-            "symbol": security,
-            "dir": "SELL" if is_sell else "BUY",
-            "price": price,
-            "size": size,
-        }
-        self._write(order_message)
-        self.security_manager.create_order(order_message)
-        if after_filled is not None:
-            self.registered_filled_callbacks[order_id] = after_filled
-        return order_id
 
     def create_convert_order(self, security, size,
                              is_sell: bool = None,
@@ -263,6 +263,7 @@ class TradeBot:
     def cancel_order(self, order_id, after_cancelled: Callable = None):
         order_message = {"type": "cancel", "order_id": order_id}
         self._write(order_message)
+        self.security_manager.cancel_order(order_id)
         if after_cancelled is not None:
             self.registered_cancelled_callbacks[order_id] = after_cancelled
 
