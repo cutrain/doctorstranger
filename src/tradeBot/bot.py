@@ -79,6 +79,8 @@ class TradeBot:
         Thread(target=lambda: self._listen_loop()).start()
 
     def _listen_loop(self):
+        sync_every = 100
+        counter = 0
         while True:
             for m in self.to_write:
                 self.skt.send(m.encode('ascii'))
@@ -110,6 +112,10 @@ class TradeBot:
                     self._out(message)
                 # 0.1s的tick会不会太慢
                 sleep(0.01)
+                counter += 1
+                if counter == sync_every:
+                    self._say_hello()
+                    counter = 0
             except ConnectionResetError or BrokenPipeError as e:
                 self.logger.warning(e)
                 self.logger.warning("try to reconnect")
