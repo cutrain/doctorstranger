@@ -1,4 +1,6 @@
 resources/order_id.txt
+.idea
+
 *.swp
 *.swo
 __pycache__/
