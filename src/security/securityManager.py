@@ -101,9 +101,9 @@ class SecurityManager:
 
     def get_newest_books(self) -> Dict[str, Book]:
         to_return = {}
-        for (idx, name) in enumerate(SecurityManager.securities):
+        for name in SecurityManager.securities:
             books = self.historical_books[name]
-            newest_idx = self.book_indices[idx]
+            newest_idx = self.book_indices[name]
             to_return[name] = None if newest_idx is None else books[newest_idx]
         return to_return
 
