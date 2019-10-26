@@ -54,7 +54,7 @@ class TradeBot:
             self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.logger.info("try to connect to the server")
             self.skt.connect((self.exchange_hostname, self.port))
-            self.exchange: IO = self.skt.makefile("rw", 1)
+            self.exchange: IO = self.skt.makefile("r", 1)
             self._say_hello()
         except Exception as e:
             self.logger.warning(e)
@@ -75,7 +75,7 @@ class TradeBot:
     def _listen_loop(self):
         while True:
             for m in self.to_write:
-                self.exchange.write(m)
+                self.skt.send(m.encode('ascii'))
             self.to_write = []
             try:
                 message = self._read()
