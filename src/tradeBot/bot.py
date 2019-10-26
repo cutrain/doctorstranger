@@ -25,7 +25,8 @@ class TradeBot:
         #                     filename='bond.log',
         #                     filemode='a')
         self.logger = getLogger("TradeBot")
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s", '%Y-%m-%d %H:%M:%S')
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s",
+                                      '%Y-%m-%d %H:%M:%S')
         file_handler = logging.FileHandler('TradeBot.log')
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
@@ -102,6 +103,7 @@ class TradeBot:
                 self.logger.warning("try to reconnect")
                 self._connect()
             except Exception as e:
+                self.logger.warning(message)
                 self.logger.warning(e)
 
     def _say_hello(self):
@@ -161,6 +163,7 @@ class TradeBot:
 
     def _out(self, message):
         order_id = message['order_id']
+        self.security_manager.out_trade(order_id)
         # TODO 不知道是干嘛的
 
     def get_trades(self):
@@ -247,5 +250,7 @@ if __name__ == '__main__':
         positions = bot.get_positions()
         bot.create_buy_sell_order("BOND", 999, 10, is_sell=True)
         bot.create_buy_sell_order("BOND", 1001, 10, is_buy=True)
+        bot.create_convert_order("BAT", 10, is_buy=True)
+        bot.create_convert_order("CHE", 2, is_buy=True)
         print('\t'.join([str(positions[sec]) for sec in SecurityManager.securities]))
         sleep(0.3)

@@ -134,7 +134,7 @@ class SecurityManager:
         order_id = order_message['order_id']
         security = order_message['symbol']
         direction = order_message['dir']
-        price = order_message['price']
+        price = order_message['price'] if 'price' in order_message else None
         size = order_message['size']
         self.orders['wait'].append({
             "order_id": order_id,
@@ -210,6 +210,28 @@ class SecurityManager:
                             self.orders['wait'].pop(idx)
                     return filled
         raise Exception(f"order {order_id} not found")
+
+    def out_trade(self, order_id):
+        for order_set in ["confirmed", "wait"]:
+            for (idx, order) in enumerate(self.orders[order_set]):
+                if order['order_id'] == order_id:
+                    order_type = order['type']
+                    direction = order['direction']
+                    security = order['security']
+                    if order_type == "convert":
+                        size = order['size']
+                        if direction == "SELL":
+                            self.positions[security] -= size
+                            for (sec, to_size) in zip(SecurityManager.convertibles[security].to,
+                                                      SecurityManager.convertibles[security].to_sizes):
+                                self.positions[sec] += size / SecurityManager.convertibles[security].from_size * to_size
+
+                        elif direction == "BUY":
+                            self.positions[security] += size
+                            for (sec, to_size) in zip(SecurityManager.convertibles[security].to,
+                                                      SecurityManager.convertibles[security].to_sizes):
+                                self.positions[sec] -= size / SecurityManager.convertibles[security].from_size * to_size
+                    return
 
 
 if __name__ == '__main__':
