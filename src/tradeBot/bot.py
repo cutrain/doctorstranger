@@ -53,7 +53,7 @@ class TradeBot:
             self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.logger.info("try to connect to the server")
             self.skt.connect((self.exchange_hostname, self.port))
-            self.exchange: IO = self.skt.makefile("rw", 5000)
+            self.exchange: IO = self.skt.makefile("rw", 1)
             self._say_hello()
         except Exception as e:
             self.logger.warning(e)
@@ -64,7 +64,7 @@ class TradeBot:
         self.exchange.flush()
 
     def _read(self) -> dict:
-        data = self.exchange.readline()
+        data = self.exchange.readline().strip()
         return json.loads(data)
 
     def _listen(self):
@@ -102,10 +102,6 @@ class TradeBot:
             except ConnectionResetError or BrokenPipeError as e:
                 self.logger.warning(e)
                 self.logger.warning("try to reconnect")
-                self._connect()
-            except Exception as e:
-                self.logger.warning(message)
-                self.logger.warning(e)
                 self._connect()
 
     def _say_hello(self):
