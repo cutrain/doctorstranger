@@ -24,12 +24,21 @@ class TradeBot:
         #                     datefmt='%Y-%m-%d %H:%M:%S',
         #                     filename='bond.log',
         #                     filemode='a')
-        # self.logger = getLogger("TradeBot")
+        self.logger = getLogger("TradeBot")
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s", '%Y-%m-%d %H:%M:%S')
+        file_handler = logging.FileHandler('TradeBot.log')
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(formatter)
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)
+        self.logger.addHandler(stream_handler)
         self.skt: Union[None, socket.socket] = None
         self.connection = None
         if mode == 'test':
             self.exchange_hostname = "test-exch-doctorstrange"
-            self.port = 25002
+            self.port = 25000
         elif mode == 'prod':
             self.exchange_hostname = "production"
             self.port = 25000
@@ -43,7 +52,7 @@ class TradeBot:
             self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.logger.info("try to connect to the server")
             self.skt.connect((self.exchange_hostname, self.port))
-            self.exchange: IO = self.skt.makefile("rw", 1024)
+            self.exchange: IO = self.skt.makefile("rw", 5000)
             self._say_hello()
         except Exception as e:
             self.logger.warning(e)
@@ -117,9 +126,10 @@ class TradeBot:
     def _book(self, message):
         symbol = message['symbol']
         # buy N ----> buy 1
-        buys = [{"price": buy[0], "size": buy[1]} for buy in message['buys']]
+
+        buys = [{"price": buy[0], "size": buy[1]} for buy in message['buy']]
         # sell 1 ----> sell N
-        sells = [{"price": sell[0], "size": sell[1]} for sell in message['sells']]
+        sells = [{"price": sell[0], "size": sell[1]} for sell in message['sell']]
         self.security_manager.update_book(symbol, buys, sells)
 
     def _trade(self, message):

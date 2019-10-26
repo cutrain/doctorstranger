@@ -1,3 +1,4 @@
+import json
 from datetime import datetime as dt
 from typing import Dict, List, NamedTuple
 
@@ -11,14 +12,18 @@ Convertible = NamedTuple('Convertible',
 
 
 def timestamp_now():
-    return dt.timestamp(dt.now())
+    return int(dt.timestamp(dt.now()))
 
 
-class Book:
+class Book(dict):
     def __init__(self, buys, sells, timestamp):
+        super().__init__()
         self.buys: List[BookPair] = [BookPair(buy['price'], buy['size']) for buy in buys]
+        self['buys'] = self.buys
         self.sells: List[BookPair] = [BookPair(sell['price'], sell['size']) for sell in sells]
+        self['sells'] = self.sells
         self.timestamp = timestamp
+        self['timestamp'] = self.timestamp
 
 
 class SecurityManager:
@@ -74,6 +79,16 @@ class SecurityManager:
         pass
 
     def close_trading_day(self):
+        root_dir = os.path.join("histories", str(timestamp_now()))
+        os.makedirs(root_dir)
+        for name in self.historical_trades:
+            with open(os.path.join(root_dir, f'{name}_trades.list'), 'a') as f:
+                for trade in self.historical_trades[name]:
+                    f.write(f'{json.dumps(trade)}\n')
+        for name in self.historical_books:
+            with open(os.path.join(root_dir, f'{name}_books.list'), 'a') as f:
+                for trade in self.historical_books[name]:
+                    f.write(f'{json.dumps(trade)}\n')
         pass
 
     def update_book(self, symbol: str, buys, sells):
@@ -129,12 +144,13 @@ class SecurityManager:
             "price": price,
             "size": size,
             "timestamp": timestamp_now(),
+            "fills": [],
+            "reason": None,
         })
 
     def ack_order(self, order_id):
         for (idx, order) in enumerate(self.orders['wait']):
             if order['order_id'] == order_id:
-                order['fills'] = []
                 self.orders['confirmed'].append(order)
                 self.orders['wait'].pop(idx)
                 break
@@ -143,8 +159,8 @@ class SecurityManager:
         for (idx, order) in enumerate(self.orders['wait']):
             if order['order_id'] == order_id:
                 order['reason'] = reason
-                self.orders['confirmed'].append(order)
-                self.orders['rejected'].pop(idx)
+                self.orders['rejected'].append(order)
+                self.orders['wait'].pop(idx)
                 break
 
     def fill_order(self, order_id, price, size) -> bool:
