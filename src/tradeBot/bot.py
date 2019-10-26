@@ -66,10 +66,13 @@ class TradeBot:
         # self.exchange.write()
         # self.exchange.flush()
 
-    def _read(self) -> dict:
+    def _read(self) -> Union[Dict, None]:
         data = self.exchange.readline().strip()
         try:
-            return json.loads(data)
+            if len(data) == 0:
+                return None
+            else:
+                return json.loads(data)
         except Exception as e:
             self.logger.warning("error, check following data")
             self.logger.warning(data)
@@ -85,6 +88,8 @@ class TradeBot:
             self.to_write = []
             try:
                 message = self._read()
+                if message is None:
+                    continue
                 message_type = message['type']
                 self.logger.info(f'receive {message_type}')
                 if message_type == 'hello':
@@ -124,8 +129,8 @@ class TradeBot:
 
     def _open(self, symbols: List):
         self.security_manager.open_trading_day(symbols)
-        self.registered_filled_callbacks = []
-        self.registered_cancelled_callbacks = []
+        self.registered_filled_callbacks = {}
+        self.registered_cancelled_callbacks = {}
         if "after_open" in self.hooks:
             self.hooks["after_open"]()
 
