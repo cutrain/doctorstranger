@@ -19,6 +19,7 @@ class TradeBot:
         self.team_name: str = team_name
         self.hooks = {} if hooks is None else hooks
         self.registered_filled_callbacks: Dict[int, Callable[[int, int, bool], None]] = {}
+        self.registered_cancelled_callbacks: Dict[int, Callable] = {}
         # logging.basicConfig(level=logging.DEBUG,
         #                     format='%(asctime)s - %(message)s',
         #                     datefmt='%Y-%m-%d %H:%M:%S',
@@ -118,6 +119,8 @@ class TradeBot:
 
     def _open(self, symbols: List):
         self.security_manager.open_trading_day(symbols)
+        self.registered_filled_callbacks = []
+        self.registered_cancelled_callbacks = []
         if "after_open" in self.hooks:
             self.hooks["after_open"]()
 
@@ -166,8 +169,9 @@ class TradeBot:
 
     def _out(self, message):
         order_id = message['order_id']
+        if order_id in self.registered_cancelled_callbacks:
+            self.registered_cancelled_callbacks[order_id]()
         self.security_manager.out_trade(order_id)
-        # TODO 不知道是干嘛的
 
     def get_trades(self):
         return self.security_manager.get_trades()
@@ -187,7 +191,7 @@ class TradeBot:
     def create_buy_sell_order(self, security, price, size,
                               is_sell: bool = None,
                               is_buy: bool = None,
-                              after_filled: Callable[[int, int, bool], None] = None):
+                              after_filled: Callable[[int, int, bool], None] = None) -> int:
         """
         :param security:
         :param price:
@@ -195,7 +199,7 @@ class TradeBot:
         :param is_sell:
         :param is_buy:
         :param after_filled: on_filled(size, price, completed) 当这个order被fill的时候会调用
-        :return:
+        :return: order_id
         """
         if is_sell is None and is_buy is None:
             raise Exception("direction not specified")
@@ -219,7 +223,7 @@ class TradeBot:
     def create_convert_order(self, security, size,
                              is_sell: bool = None,
                              is_buy: bool = None,
-                             after_filled: Callable[[int, int, bool], None] = None):
+                             after_filled: Callable[[int, int, bool], None] = None) -> order_id:
         """
         :param security:
         :param size:
@@ -245,6 +249,12 @@ class TradeBot:
         if after_filled is not None:
             self.registered_filled_callbacks[order_id] = after_filled
         return order_id
+
+    def cancel_order(self, order_id, after_cancelled: Callable = None):
+        order_message = {"type": "cancel", "order_id": order_id}
+        self._write(order_message)
+        if after_cancelled is not None:
+            self.registered_cancelled_callbacks[order_id] = after_cancelled
 
 
 if __name__ == '__main__':
