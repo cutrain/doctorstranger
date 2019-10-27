@@ -1,0 +1,390 @@
+etc
+Introduction to the challenge
+Getting started
+The challenge structure
+Some golden rules
+Technical details
+Advice from the devs
+Advice from the traders
+FAQ
+Quiz
+Introduction to the challenge
+etc is a programming challenge. The goal is to write a program that will make fake money by trading securities on a fake financial exchange. The market participants will include other people’s programs, as well as some programs provided by us (the “marketplace bots”). To start, read over this brief intro to finance to learn the basic financial concepts and trading strategies you will need for this competition.
+
+Getting started
+Developing your bot
+We will be running this challenge on Amazon EC2.
+
+Each team will receive one Ubuntu Linux box in the cloud which is yours and yours alone, which we’ll call your “bot box”. You can develop there if you wish, or you can develop on your laptop and upload to your box. If you choose the latter route, be sure to check that your binary actually works in the cloud.
+
+When we are ready to begin, we will tell you the (public) IP address of your bot box. To get started, log in to the box by opening a terminal on your laptop and using ssh:
+
+ssh ubuntu@54.154.27.172     # Replace with your bot box's public IP
+If you’re developing on your local machine, an easy way to copy your code to your bot box is with the command “scp”, which follows similar semantics to cp:
+
+# Replace 54.154.27.172 with your bot box's public IP
+# Copies $LOCAL_PATH to $REMOTE_PATH
+scp $LOCAL_PATH ubuntu@54.154.27.172:$REMOTE_PATH
+If you’d like, you can change your password to something more memorable at this point using the standard unix utility “passwd”. Alternatively, you can add an SSH key to “~/.ssh/authorized_keys” so you don’t have to type a password.
+
+Do not remove our SSH authorized keys on your bot box
+We need to be able to SSH into the bot boxes in order to connect them to the production exchanges. If you remove us, your bot will not be able to compete.
+
+Testing your bot
+You have access to three test exchanges where you can test out your bot. The three exchanges run slightly different versions of the marketplace. On the zeroth exchange (“0-prod-like”), the marketplace runs at the true competition speed and simulates real rounds by restarting every five minutes. On the first exchange (“1-slower”), the marketplace runs more slowly and does not restart. On the second exchange (“2-empty”), there is no marketplace – the exchange is empty, ready for you to play around with.
+
+The same symbols are available on the test exchanges as on the prod exchanges. Each trial will have the same starting prices for all of the symbols, but the price path after that is random – you should not expect them to remain consistent between the test and prod exchanges, nor even between two different games on a prod exchange.
+
+Connecting to the exchange
+You must establish a TCP connection to the exchange. There is a different port depending on whether you want to use the plain-text protocol or the JSON protocol. The technical details surrounding the exchange protocol can be found here.
+
+Each team may have at most one connection open to an exchange at any time.
+
+If you have never done any socket programming before, you might want to Google for some tutorials for writing TCP clients. Both the “plain” and JSON protocols are line based—that is, every message ends with a newline—so you might want to look for advice about line buffering. Here are some starting points for a few languages:
+
+Python
+C/C++
+Java
+OCaml
+Note that the model is different from a request/response protocol like HTTP: you connect, and the server continually sends you data as soon as an event (e.g. a trade or new order) occurs. There is no need (and indeed, no way) to regularly ask the server what the current status is.
+
+Test exchange host and ports
+If your team name is ORANGE, then your test exchanges can be found on the host “test-exch-orange”. If you need an IP address, you can find it like so:
+
+ubuntu@bot-orange:~$ host test-exch-orange
+test-exch-orange has address 10.0.109.63   # (for example)
+The plain text ports for the prod-like, slower, and empty exchanges are 20000, 20001 and 20002 respectively; the JSON ports are 25000, 25001 and 25002.
+
+For example, you can connect to the prod-like test exchange using netcat:
+
+$ nc test-exch-teamname 20000 # Replace "teamname" with your team name here
+HELLO TEAMNAME                # ... and here (uppercase)
+Or connect to the JSON format port of the empty exchange:
+
+$ rlwrap nc test-exch-teamname 25002   # Replace "teamname" with your team name here
+{"type": "hello", "team": "TEAMNAME"}  # ... and here (uppercase)
+Here we wrap the nc command with rlwrap such that you can get previous commands with arrow keys, or use Ctrl-r to search input history (similar to what you can do in most shells), which is handy.
+
+After “HELLO” exchange will send public feed, you may want to redirect the output to another file such that you can continue entering more commands.
+
+$ rlwrap nc test-exch-teamname 20000 > /tmp/nc-output  # Replace "teamname" with your team name here
+HELLO TEAMNAME                                         # ... and here (uppercase)
+Then from another terminal check the output in the file /tmp/nc-output, for example
+
+$ tail -f /tmp/nc-output
+Monitoring your bot
+You can see the current books on the exchanges, as well as all positions and the history of trades. Use your team name and password to log in.
+
+http://asia.etc.janestreet.com:8080
+
+At this point, you should manually connect to a test exchange, place some orders (using netcat), and observe the exchange state at the above URL.
+
+The challenge structure
+The challenge consists of a series of five minute matchups. In each matchup, you and another team compete to be the best market maker, providing liquidity to a third bot called the “marketplace”.
+
+The marketplace has an internal random process for each stock which represents the fair value of that stock. (At the end of the matchup, the portfolio you have amassed will be evaluated using these fair values – see below). The marketplace will send some orders around the fair value. Some orders will, like yours, be orders intended to provide liquidity. Other orders from the marketplace will be emulating liquidity demanders – people who just wish to buy or sell a certain amount of shares, and don’t care too much about the price they get.
+
+In particular, it is not the marketplace’s job to make money. Although technically speaking the marketplace is a “bot”, its positions or pnl is not very relevant. The marketplace is meant to represent a whole bunch of different market participants, some of whom are more price-sensitive than others. This is representative of the fact that we mentioned in the finance intro – it’s unhelpful to think of trading as a zero-sum game.
+
+You can choose to participate, or not, in a given matchup, or join after the matchup begins, or give up halfway through – whatever you want.
+
+At the end of a matchup, the exchange closes and then reopens shortly afterwards for the next matchup, where you’ll be playing alongside a different team. We reset your cash and positions too. You’ll want to make sure your bot can reconnect automatically when the exchange re-opens for the next matchup.
+
+Your portfolio
+You have an account (like a bank account) that can hold both currency and shares in financial securities. At the beginning of each matchup your account is empty – no currency, no shares. The number of shares of a particular security that you own is called your /position/ in that security. If you buy a share by paying a currency, your position in that currency goes down and your position in that stock goes up. If you sell, the opposite. In this competition, the only currency we’ll be dealing with is CNY (Chinese Yuan). Since CNY is the only currency we’ll be using, we may refer to it as “cash” in this handout.
+
+Note that it is possible to have a negative position in any product including cash – you can effectively borrow money or shares from the bank at which you hold the account.
+
+Risk limits
+Your position in each security will be limited, with the limits depending on which stock or ETF you’re trading — see the table below. For example, in BOND, the position limit is 100 shares; that means your position in BOND may never be less than -100 or greater than +100. In the real world, our positions are limited by the availablity of stock borrow, capital constraints, and crash risk. Obviously, the greater your position, the more exposed you are to a crash in this security.
+
+symbol	limit
+BOND	100
+CAR	10
+CHE	10
+BDU	100
+ALI	100
+TCT	100
+BAT	100
+These are enforced by the exchange: if you send an order such that if it and all your other orders in the same symbol and direction were fully filled it would put you over your position limits, then your order will be rejected.
+
+There are no direct limits on your cash balance in either direction.
+
+However, there are limits on your profit/loss. If at some point you get to a stage where your current pnl is too negative, you will be determined to have “blown out”. We’ll stop your participation in that matchup there, and close any positions you have at the fair value at that time. The limit is -30,000.
+
+Profit and loss
+Your profit/loss (aka “pnl”) can be computed by taking the amount of cash in your account (e.g. if you buy a security for 10, and then sell it for 12, you would have 2 cash in your account), and adding the value of all your holdings (again, as determined by the marketplace’s internal notion of fair value). The main goal is to maximize your pnl over all the rounds you participate in. Another important goal is to avoid doing very poorly in any given round. This is reflective of the real world: you may do particularly well on some days, but you really want to avoid losing all your money on any given day because then you’re out of a job.
+
+Rounds
+A round will last for five minutes, after which the exchange will shut down. A new exchange will shortly start up and be available on the same address.
+
+We don’t carry your positions forward from one game to the next.
+
+Be careful – you should not assume that the values of securities in one game will be anywhere near the values in a previous game.
+
+If your bot quits once its connection to the exchange goes down, you might want to run your bot in a bash loop so that it automatically reconnects:
+
+while true; do ./bot.exe; sleep 5; done
+Running in production
+When you’re ready to run your bot in production, have it connect to the host “production” on port 20000 (plain text protocol) or port 25000 (JSON protocol).
+
+(“production” is a hostname that will resolve via DNS. If you need an IP address, use “1.1.1.1”).
+
+You can see the results from your previous production round here:
+
+http://asia.etc.janestreet.com:8080/go/last-round-results
+
+Timetable and scoring
+There will be two distinct competitions, with two distinct prizes.
+
+The first will run (more-or-less) continuously between 11:00 am and 5:00 pm. Here’s how your score for each individual matchup will contribute to your overall competition score.
+
+Phase	Length	%	Start	End
+A	1.5 hr	25%	11:00 am	12:30 pm
+B	1.0 hr	5%	12:30 pm	1:30 pm
+C	2.5 hr	40%	1:30 pm	4:00 pm
+D	1.0 hr	30%	4:00 pm	5:00 pm
+At 5:00 pm we will start the second session: “The Final Hour”. The winner of this session is determined by the score of this session.
+
+Phase	Length	%	Start	End
+-	1.0 hr	100%	5:00 pm	6:00 pm
+Some golden rules
+You must not attempt to manipulate other people’s bots.
+You must not attempt to manipulate the exchange.
+Your bot should be entirely written by your team today (standard libraries are fine).
+You are building a bot to provide a service to the marketplace bots, and attempting to do so in the best possible way.
+
+Some examples of what would count as manipulation:
+
+Trading with yourself in order to publish “fake” trades to all participants, in an attempt to have them believe the trade price is a reasonable fair value for the security.
+Sending orders to the exchange where you know at the time of sending that you want to cancel the orders and never let them trade. If you think it would be a bad idea to buy security for price P, then you shouldn’t send orders to buy that security for price P.
+Don’t download a bot from the internet and run that instead of writing a bot. Or other silly things like that. Basically, don’t be a jerk.
+
+We reserve the right to subtract some from your bot’s profit, or disqualify you completely, if we feel you’ve violated these rules. Obviously they are somewhat vague. Please come talk to us if you have any concerns. If you find a bug in the exchange, please tell us. If you think someone else has been deliberately manipulating your bot, please tell us too.
+
+Technical details
+The exchange protocol
+What sorts of messages form the protocol between the exchange and you?
+
+You to exchange:
+
+Hello: the first message you must send, identifying yourself to the exchange
+Add: a request to buy or sell a security; “add order”
+Cancel: a request to remove from the book some previously-placed order that hasn’t traded yet
+Convert: a request to convert an ETF or ADR (from or to its underlying basket)
+Exchange to you (private):
+
+Hello: the first message the exchange will send you when you connect, containing your positions
+Ack: “your order was successfully placed on the book” (this does not mean it traded!)
+Reject: “your order wasn’t valid for this reason: …” (e.g. negative price, malformed syntax etc.)
+Error: an error related to your bot that’s not associated with a specific order
+Out: following a cancel or once your order is completely filled, “your order is no longer on the book”
+Fill: “your order traded”
+Exchange to you (public):
+
+Book: “the current state of the book is…”
+Trade: “two (anonymous) people traded at price X”
+Open: “the market for a specific security has opened”
+Close: “the market for a specific security has closed”
+Exchange protocol example
+Client messages
+HELLO TEAMNAME
+ADD ID SYMBOL BUY|SELL PRICE SIZE
+CONVERT ID SYMBOL BUY|SELL SIZE
+CANCEL ID
+
+{"type": "hello", "team": "ASDF"}
+{"type": "add", "order_id": N, "symbol": "SYM", "dir": "BUY", "price": N, "size": N}
+{"type": "convert", "order_id": N, "symbol": "SYM", "dir": "BUY", "size": N}
+{"type": "cancel", "order_id": N}
+Server messages
+HELLO SYM:POSN SYM:POSN ...
+OPEN SYM SYM SYM ...
+CLOSE SYM SYM SYM ...
+ERROR MSG
+BOOK SYMBOL BUY PRICE:SIZE PRICE:SIZE ... SELL PRICE:SIZE PRICE:SIZE ...
+TRADE SYMBOL PRICE SIZE
+ACK ID
+REJECT ID MSG
+FILL ID SYMBOL DIR PRICE SIZE
+OUT ID
+
+{"type":"hello","symbols":[{"symbol":"SYM","position":N}, ...]}
+{"type":"open","symbols":["SYM1", "SYM2", ...]}
+{"type":"close","symbols":["SYM1", "SYM2", ...]}
+{"type":"error","error":"MSG"}
+{"type":"book","symbol":"SYM","buy":[[PRICE,SIZE], ...],"sell":[...]}
+{"type":"trade","symbol":"SYM","price":N,"size":N}
+{"type":"ack","order_id":N}
+{"type":"reject","order_id":N,"error":"MSG"}
+{"type":"fill","order_id":N,"symbol":"SYM","dir":"BUY","price":N,"size":N}
+{"type":"out","order_id":N}
+Please note that the protocol is case sensitive, and you should imitate the above.
+
+“Types”
+DIR: A direction is one of “BUY” or “SELL”.
+TEAMNAME, SYMBOL: Team names and symbols are uppercase alpha only.
+PRICE, SIZE: Prices and sizes are positive integers strictly less than 1000000.
+POSN: Positions are integers (at least smaller than 2^32)
+ID: Order ids are non-negative integers (at least smaller than 2^32)
+MSG: Arbitrary strings potentially including spaces (but they won’t contain newlines or nulls or anything tricksy).
+Handshake
+You must issue the “hello” message first, and you must be accurate with your team name — don’t impersonate someone else!
+
+You will immediately receive a “hello” from the exchange (or an error). The hello will include your current positions in each symbol (including CNY). At the start these will all be zero; these numbers are only useful to you if you crash and reconnect (which you shouldn’t be planning on doing!).
+
+Orders
+You, the client, must pick unique identifiers for your orders and send them along with the rest of the details in the “add message”. Ack, reject, fill and out messages will refer to the order by this identifier. It need not be globally unique, merely unique to your connection to the exchange. Besides these restrictions, you may pick them however you like, remembering that they must be non-negative integers.
+
+To, say, enter a buy order for BOND with price 1002 and size 50, issue:
+
+ADD 5 BOND BUY 1002 50
+
+{"type": "add", "order_id": 5, "symbol": "BOND", "dir": "BUY", "price": 1002, "size": 50}
+You will receive either:
+
+ACK 5
+
+{"type": "ack", "order_id": 5}
+or:
+
+REJECT 5 REASON
+
+{"type": "reject", "order_id": 5, "error": "REASON"}
+where “REASON” might be one of the strings mentioned above.
+
+Suppose that your order could trade immediately with a “sell 10 at $1001” order that was resting on the market. Shortly after the ack you would receive:
+
+FILL 5 BOND BUY 1001 10
+
+{"type": "fill", "order_id": 5, "symbol": "BOND", "dir": "BUY", "price": 1001, "size": 10}
+The fill contains a reminder of the order’s symbol and direction, the price that the order traded at, and the number of shares that traded.
+
+Note that your order is still on the market, but now its size is 40.
+
+When your order has been fully filled, you will also receive an “out” message. Continuing the above example, if a little later on, someone else submitted a large low sell order, you would receive
+
+FILL 5 BOND BUY 1002 40
+OUT 5
+
+{"type": "fill", "order_id": 5, "symbol": "BOND", "dir": "BUY", "price": 1002, "size": 40}
+{"type": "out", "order_id": 5}
+Note that at roughly the same time as you receive a “fill” message, you will also receive a “trade” message.
+
+To cancel an order, issue
+
+CANCEL 5
+
+{"type": "cancel", "order_id": 5}
+The reply will be
+
+OUT 5
+
+{"type": "out", "order_id": 5}
+Provided you have completed the handshake, “cancel” messages never fail: you will always receive an “out” reply, even if the server does not recognise that order. If a cancel and a fill race (and the cancel loses), you might receive two outs for the same order id. Furthermore, you might receive an out for an order that was neither cancelled by you nor fully filled (an “unsolicited out”), if the exchange decides it wants to cancel your order for some specific reason. You may wish to ignore outs you don’t recognise.
+
+Conversions to and from an ADR or ETF are done using the CONVERT message, which is similar to ADD but without a price:
+
+CONVERT 4 CHE BUY 10
+
+{"type": "convert", "order_id": 4, "symbol": "CHE", "dir": "BUY", "size": 10}
+“BUY” means you receive the ADR/ETF and give out the constituent basket of stocks. “SELL” means you give out the ADR/ETF and receive the constituent basket of stocks. In both cases, you pay a conversion fee. You are not allowed to convert if it would put you over any position limit – in the ADR/ETF or in the stocks. The order ID for conversions shares a namespace with orders.
+
+The reply will be either an ACK message or a REJECT message indicating whether the conversion was successful or not. It is not possible for a conversion to partially succeed.
+
+Public feed
+Trade and book messages constitute the anonymised public feed.
+
+TRADE BOND 1002 40
+
+{"type":"trade","symbol":"BOND","price":1002,"size":40}
+means that 40 shares of BOND have traded at price $1002 between two people (or one person with themselves).
+
+BOOK BOND BUY 999:12 998:100 995:1 SELL 1001:4 1002:15 1003:100
+
+{"type":"book","symbol":"BOND","buy":[[999,12],[998,100],[995,1]],"sell":[[1001,4],[1002,15],[1003,100]]}
+means that one or more people are willing to buy BOND for $999, and the sum of the sizes of those orders is 12. (Willing to buy 100 shares of BOND for $998, etc.) On the other side, there are people willing to sell up to 4 shares at $1001.
+
+The book will be truncated to 15 price levels. It will be sorted most-aggressive-first (i.e. bids are high-to-low, offers are low-to-high), so that the best bid and offer are in the location indicated by “BEST” below:
+
+BOOK BOND BUY BEST OTHERS... SELL BEST OTHERS...
+
+{"type":"book","symbol":"BOND","buy":[BEST, ...],"sell":[BEST, ...]}
+There are no guarantees about when you’ll receive these messages in relation to the private ones. Notably:
+
+when you add an order, the “book” update to include your order may arrive before or after the ack (moreover, not necessarily immediately before or after)
+similarly for trade & fill messages.
+Errors
+“Error” and “reject” messages are the server complaining about your bot. If the server is able to associate the error with an “add” message, then it will send a “reject” with the order id that failed and the error message. Otherwise, you will simply receive an “error”.
+
+If the server detects that you have disconnected then all of your open orders will be canceled.
+
+Available symbols
+The following symbols are available:
+
+BOND
+CAR
+CHE
+BDU
+ALI
+TCT
+BAT
+The symbol BOND has a marketplace fair value of precisely 1000 at all times, but could possibly trade at other prices.
+
+CAR is a regular stock.
+
+The symbol CHE is an ADR of CAR (you can think of this as an ETF with one component). 1 share of CHE can be converted to/from 1 share of CAR. The conversion fee for CHE is a fixed cost of 10 per conversion (regardless of the number of shares converted).
+
+Symbols BDU, ALI, and TCT are regular stocks.
+
+The symbol BAT is an ETF. 10 shares of BAT can be converted to/from a basket of:
+
+3 BOND
+2 BDU
+3 ALI
+2 TCT
+You must convert BAT in multiples of 10. The conversion fee for BAT is a fixed cost of 100 per conversion (regardless of the number of shares converted). Note that to convert 10 BAT shares, the size in your “convert” message should be 10, not 1.
+
+Market hours
+You cannot add orders in a symbol when it is closed (or “halted”): attempting to do so will produce a reject.
+
+The exchange will start with all symbols closed. It will then open, sending you an “open” message to inform you of this, and then after some period of time close (sending you a “close” message). Shortly afterwards it will shut down, simply closing its connection to you.
+
+Advice from the devs
+Keep it simple
+Most of the time, a complicated algorithm is hard to think about and hard to write.
+
+Start trading early
+It’s a good idea to find a strategy to make you money, and continue using it throughout the competition. You should try to provide liquidity early.
+
+If something seems like it should be solved for you already, it probably is
+In past competitions, people have spent lots of time doing low-level things like writing line parsers for the TCP protocol. Every language that’s been used in past etc events has had the native ability, or had libraries readily available to read whole lines from a socket.
+
+Spend some time to make sure you can debug your bot
+When there’s a problem with your bot, make sure you can figure out what’s going wrong. Many languages have built-in logging frameworks or great 3rd party libraries for these. Printf can also be your friend.
+
+Advice from the traders
+Step 1: trading BOND
+BOND should be pretty straightforward to trade for positive expectancy, since its fair value is known! Buy it for less than 1000 or sell it for more than that and you’re golden. Fortunately, there’s a lot more of interest to come.
+
+Step 2: trading the CAR/CHE ADR pair
+These are two stocks for which the fair value changes over time but is always equal across the two. CAR is the more liquid side, and so you’ll notice that it’s a better source of price information, but its a lot harder to make money trading. Protip: use the more liquid leg (CAR) to price out and trade the less liquid leg (CHE). The position bounds are tight, though, so you’ll have to convert and trade both stocks if you want to maximize your expected profits.
+
+Step 3: the BAT ETF
+Now instead of a one-to-one relationship, you’ll need to price out a basket of stocks in order to trade BAT. Again, due to the position bounds, careful position management (and converting) and good execution methods will be critical to success.
+
+Get going!
+The earlier you can get something simple that works out into the marketplace, the more time your bot can spend making profits. Work on version 2.0 while you’re making money with version 1.0.
+
+Maximize!
+Keep tuning and improving your algorithms; maybe a simple change to one of your parameters could double your profits per round. Use the test exchange to experiment; the marketplace bots there are exactly the same as on the competition exchange.
+
+FAQ
+My messages are being ignored!
+You need to send a newline after each message (even when using the JSON protocol).
+
+Can I use <favorite library> or <favorite search engine>?
+You are welcome (and encouraged!) to search for solutions to problems, standard libraries etc. online. But please don’t download bot code, post solutions online, get someone to write code for you, or anything like that.
+
+Quiz
+To get started, complete a quick quiz and then come see us to get connection details for your box.
